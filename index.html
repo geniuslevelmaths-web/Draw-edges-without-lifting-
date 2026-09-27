@@ -1,0 +1,1446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>One-Line Drawing Challenge</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+    body, body * {
+        -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;
+        user-select: none; -webkit-user-drag: none; -webkit-touch-callout: none;
+    }
+    input, textarea { -webkit-user-select: text !important; user-select: text !important; }
+    @media print { body * { display: none !important; visibility: hidden !important; } html { display: none !important; } }
+
+    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        color: #fff;
+        background: #1e3f20;
+    }
+
+    .screen {
+        position: fixed; inset: 0;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        padding: 60px 20px 20px;
+        text-align: center;
+        overflow: hidden;
+        z-index: 10;
+    }
+    .screen.active { display: flex; animation: fadeIn 0.4s ease; }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: scale(0.97); }
+        to { opacity: 1; transform: scale(1); }
+    }
+
+    #credit {
+        position: fixed; top: 0; left: 0; right: 0;
+        text-align: center;
+        padding: 6px 12px;
+        z-index: 500;
+        pointer-events: none;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: clamp(13px, 2.6vw, 22px);
+        font-weight: bold;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        background: linear-gradient(90deg,
+            #ff0080, #ff8c00, #ffd700, #00ffcc, #00b3ff, #b366ff, #ff0080);
+        background-size: 400% 100%;
+        -webkit-background-clip: text; background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: rainbowShift 4s linear infinite;
+        text-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    @keyframes rainbowShift {
+        0% { background-position: 0% 50%; }
+        100% { background-position: 400% 50%; }
+    }
+
+    #exitBtn {
+        position: fixed; top: 8px; right: 8px;
+        z-index: 600;
+        padding: 7px 16px;
+        border-radius: 22px;
+        background: linear-gradient(135deg, #dc3545, #a02030);
+        color: #fff;
+        border: 2px solid rgba(255,255,255,0.75);
+        font-size: clamp(11px, 2vw, 14px);
+        font-weight: bold;
+        cursor: pointer;
+        font-family: inherit;
+        box-shadow: 0 4px 14px rgba(220,53,69,0.55);
+        transition: all 0.2s;
+        white-space: nowrap;
+        display: flex; align-items: center; gap: 4px;
+    }
+    #exitBtn:hover { transform: scale(1.06); }
+    #exitBtn:active { transform: scale(0.95); }
+
+    /* ============ LOCK SCREEN ============ */
+    #lockScreen { background: linear-gradient(135deg, #0a0a2e, #1a0033, #2d0052); }
+    .lock-content {
+        display: flex; flex-direction: column;
+        align-items: center; gap: 16px;
+        max-width: 520px; width: 100%;
+    }
+    .lock-icon { font-size: clamp(44px, 9vw, 68px); }
+    #lockScreen h1 {
+        font-size: clamp(1.3rem, 3.8vw, 2rem);
+        color: #ffd700;
+        text-shadow: 0 0 20px #ff8c00, 0 0 40px rgba(255,140,0,0.4);
+        font-family: 'Courier New', monospace;
+    }
+    #lockScreen p {
+        color: #aaa;
+        font-size: clamp(0.85rem, 2.1vw, 1.05rem);
+        line-height: 1.5; max-width: 440px;
+    }
+    #lockScreen p b { color: #00ffcc; }
+    #lockPassInput {
+        width: 100%; max-width: 340px;
+        padding: 14px 20px;
+        font-size: clamp(1.3rem, 4vw, 1.9rem);
+        text-align: center;
+        letter-spacing: 12px;
+        font-family: 'Courier New', monospace;
+        font-weight: bold;
+        border: 3px solid #00ffcc;
+        border-radius: 14px;
+        outline: none;
+        background: rgba(0,0,0,0.5);
+        color: #ffd700;
+        box-shadow: 0 0 20px rgba(0,255,204,0.5), inset 0 0 20px rgba(0,255,204,0.1);
+        transition: box-shadow 0.3s;
+    }
+    #lockPassInput:focus {
+        box-shadow: 0 0 30px rgba(0,255,204,0.85), inset 0 0 20px rgba(0,255,204,0.2);
+    }
+    #lockHint {
+        color: #ff4d4d;
+        font-size: 0.9rem;
+        font-weight: bold;
+        min-height: 20px;
+    }
+    #unlockBtn {
+        padding: 12px 36px;
+        font-size: clamp(1rem, 2.3vw, 1.2rem);
+        font-weight: bold;
+        background: linear-gradient(135deg, #b366ff, #7a1aff);
+        color: #fff;
+        border: none; border-radius: 12px;
+        cursor: pointer; font-family: inherit;
+        box-shadow: 0 5px 18px rgba(179,102,255,0.55);
+        transition: transform 0.15s;
+    }
+    #unlockBtn:hover { transform: translateY(-2px); }
+    #unlockBtn:active { transform: scale(0.96); }
+    .shake { animation: shakeField 0.4s ease; }
+    @keyframes shakeField {
+        0%,100% { transform: translateX(0); }
+        25%,75% { transform: translateX(-8px); }
+        50% { transform: translateX(8px); }
+    }
+
+    /* ============ SETUP SCREEN ============ */
+    #setupScreen {
+        background: linear-gradient(135deg, #4DB6AC 0%, #66BB6A 100%);
+        padding: 50px 14px 14px;
+        justify-content: space-evenly;
+        overflow-y: auto;
+    }
+    .top-controls {
+        display: flex; flex-wrap: wrap;
+        gap: 8px; justify-content: center;
+        align-items: center; width: 100%;
+        max-width: 720px;
+    }
+    .ctrl-group {
+        display: flex; gap: 4px; padding: 6px;
+        background: rgba(255,255,255,0.35);
+        border-radius: 14px;
+        border: 2px solid rgba(255,255,255,0.7);
+        backdrop-filter: blur(6px);
+        box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+    }
+    .ctrl-btn {
+        padding: 8px 16px;
+        font-size: clamp(0.85rem, 1.7vw, 1rem);
+        font-weight: bold;
+        border: none; border-radius: 10px;
+        background: rgba(255,255,255,0.7);
+        color: #333;
+        cursor: pointer;
+        font-family: inherit;
+        transition: all 0.2s;
+        white-space: nowrap;
+        min-width: 44px;
+    }
+    .ctrl-btn:hover { background: rgba(255,255,255,0.95); transform: translateY(-2px); }
+    .ctrl-btn.active {
+        background: linear-gradient(135deg, #1565C0, #0D47A1);
+        color: #fff;
+        box-shadow: 0 4px 14px rgba(21,101,192,0.55);
+        transform: scale(1.05);
+    }
+
+    #setupScreen h1.setup-title {
+        font-size: clamp(1.5rem, 4vw, 2.4rem);
+        color: #fff;
+        text-shadow: 3px 3px 8px rgba(0,0,0,0.35);
+        text-align: center;
+        font-family: 'Courier New', monospace;
+    }
+    .setup-subtitle {
+        color: #fff;
+        font-size: clamp(0.85rem, 1.8vw, 1.05rem);
+        opacity: 0.95; line-height: 1.4;
+        text-align: center; max-width: 600px;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+    }
+
+    .names-row {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        flex-wrap: wrap;
+        width: 100%;
+        max-width: 780px;
+    }
+    .name-field {
+        display: flex; flex-direction: column;
+        gap: 4px; flex: 1; min-width: 150px;
+        max-width: 240px;
+    }
+    .name-field label {
+        color: #fff; font-weight: bold;
+        font-size: clamp(0.85rem, 1.7vw, 1rem);
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.4);
+        text-align: center;
+    }
+    .name-field input {
+        padding: 11px 14px;
+        border-radius: 12px;
+        border: 3px solid #fff;
+        font-size: clamp(0.95rem, 1.9vw, 1.1rem);
+        text-align: center;
+        outline: none;
+        font-weight: bold;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+        width: 100%;
+        font-family: inherit;
+        background: #fff;
+    }
+    .name-field[data-p="1"] input { color: #1565C0; border-color: #3498db; }
+    .name-field[data-p="2"] input { color: #c0392b; border-color: #e74c3c; }
+    .name-field[data-p="3"] input { color: #1e8449; border-color: #27ae60; }
+    .name-field { display: none; }
+    body[data-players="1"] .name-field[data-p="1"],
+    body[data-players="2"] .name-field[data-p="1"],
+    body[data-players="3"] .name-field[data-p="1"] { display: flex; }
+    body[data-players="2"] .name-field[data-p="2"],
+    body[data-players="3"] .name-field[data-p="2"] { display: flex; }
+    body[data-players="3"] .name-field[data-p="3"] { display: flex; }
+
+    #startBtn {
+        padding: 15px 55px;
+        font-size: clamp(1.15rem, 2.7vw, 1.55rem);
+        font-weight: bold;
+        background: linear-gradient(180deg, #FFD54F, #FFC107);
+        color: #333;
+        border: none; border-radius: 16px;
+        cursor: pointer; font-family: inherit;
+        box-shadow: 0 6px 0 #B8860B, 0 10px 25px rgba(0,0,0,0.25);
+        transition: transform 0.15s;
+        letter-spacing: 0.5px;
+        margin-top: 6px;
+    }
+    #startBtn:hover { transform: translateY(-3px); box-shadow: 0 9px 0 #B8860B, 0 14px 30px rgba(0,0,0,0.3); }
+    #startBtn:active { transform: translateY(3px); box-shadow: 0 2px 0 #B8860B; }
+
+    /* ============ GAME SCREEN ============ */
+    #gameScreen {
+        background-color: #1e3f20;
+        background-image: radial-gradient(#2d5a30 15%, transparent 20%),
+                          radial-gradient(#1a351b 15%, transparent 20%);
+        background-size: 4px 4px;
+        background-position: 0 0, 2px 2px;
+        justify-content: flex-start;
+        padding: 40px 8px 8px;
+    }
+
+    .duel-layout {
+        flex: 1;
+        display: flex;
+        gap: 8px;
+        width: 100%;
+        min-height: 0;
+        overflow: hidden;
+        justify-content: center;
+        align-items: stretch;
+    }
+    body[data-players="3"] .duel-layout { gap: 6px; }
+
+    .player-panel {
+        flex: 1 1 0;
+        min-width: 0;
+        display: none;
+        flex-direction: column;
+        background: rgba(255,255,255,0.06);
+        border-radius: 18px;
+        padding: 8px 6px;
+        position: relative;
+        overflow: hidden;
+        border: 2px solid rgba(255,255,255,0.15);
+    }
+    body[data-players="1"] .player-panel[data-panel="0"],
+    body[data-players="2"] .player-panel[data-panel="0"],
+    body[data-players="3"] .player-panel[data-panel="0"] { display: flex; }
+    body[data-players="2"] .player-panel[data-panel="1"],
+    body[data-players="3"] .player-panel[data-panel="1"] { display: flex; }
+    body[data-players="3"] .player-panel[data-panel="2"] { display: flex; }
+
+    body[data-players="1"] .player-panel[data-panel="0"] {
+        max-width: 100% !important;
+        flex: 1 1 100% !important;
+    }
+    body[data-players="2"] .player-panel { max-width: 50%; }
+    body[data-players="3"] .player-panel { max-width: 34%; }
+
+    .p1-panel { border-color: #3498db; box-shadow: 0 0 20px rgba(52,152,219,0.3); }
+    .p2-panel { border-color: #e74c3c; box-shadow: 0 0 20px rgba(231,76,60,0.3); }
+    .p3-panel { border-color: #27ae60; box-shadow: 0 0 20px rgba(39,174,96,0.3); }
+
+    .panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 4px;
+        margin-bottom: 6px;
+        flex-wrap: wrap;
+        flex-shrink: 0;
+    }
+    .player-name-badge {
+        font-size: clamp(0.75rem, 1.4vw, 0.95rem);
+        font-weight: bold;
+        padding: 4px 12px;
+        border-radius: 30px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 60%;
+        color: #fff;
+    }
+    .p1-panel .player-name-badge { background: #3498db; box-shadow: 0 2px 0 #21618c; }
+    .p2-panel .player-name-badge { background: #e74c3c; box-shadow: 0 2px 0 #a93226; }
+    .p3-panel .player-name-badge { background: #27ae60; box-shadow: 0 2px 0 #1e8449; }
+
+    .panel-timer {
+        font-size: clamp(0.75rem, 1.4vw, 0.95rem);
+        font-weight: bold;
+        font-family: monospace;
+        background-color: rgba(255, 0, 0, 0.4);
+        padding: 4px 12px;
+        border-radius: 20px;
+        border: 2px solid #ff4e4e;
+        white-space: nowrap;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+
+    .panel-canvas-wrap {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 0;
+        padding: 4px;
+    }
+    .panel-canvas {
+        background-color: rgba(0,0,0,0.25);
+        border: 3px solid #fff;
+        border-radius: 8px;
+        box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+        cursor: crosshair;
+        max-width: 100%;
+        max-height: 100%;
+        aspect-ratio: 1;
+        touch-action: none;
+    }
+
+    .panel-message {
+        flex-shrink: 0;
+        margin-top: 5px;
+        font-size: clamp(0.72rem, 1.3vw, 0.9rem);
+        font-weight: bold;
+        min-height: 22px;
+        text-shadow: 1px 1px 2px #000;
+        text-align: center;
+        padding: 0 4px;
+        line-height: 1.2;
+    }
+    .success { color: #4eff4e; }
+    .error { color: #ff4e4e; }
+    .info { color: #ffd700; }
+
+    .panel-reset-btn {
+        flex-shrink: 0;
+        margin-top: 5px;
+        padding: 6px 14px;
+        font-size: clamp(0.7rem, 1.2vw, 0.85rem);
+        font-weight: bold;
+        background-color: #fff;
+        color: #1e3f20;
+        border: none; border-radius: 6px;
+        cursor: pointer;
+        box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+        transition: all 0.2s ease;
+        font-family: inherit;
+        align-self: center;
+    }
+    .panel-reset-btn:hover { background-color: #e0e0e0; }
+    .panel-reset-btn:active { transform: translateY(2px); }
+
+    .done-overlay {
+        position: absolute; inset: 0;
+        background: rgba(46, 204, 113, 0.92);
+        display: none;
+        justify-content: center; align-items: center;
+        border-radius: 16px;
+        z-index: 200;
+        padding: 12px;
+        animation: fadeIn 0.4s ease;
+    }
+    .p2-panel .done-overlay { background: rgba(231, 76, 60, 0.92); }
+    .p3-panel .done-overlay { background: rgba(39, 174, 96, 0.92); }
+    .panel-done .done-overlay { display: flex; }
+
+    .done-text {
+        color: #fff;
+        font-size: clamp(1rem, 2.2vw, 1.6rem);
+        font-weight: bold;
+        text-shadow: 3px 3px 0 rgba(0,0,0,0.25);
+        text-align: center;
+        line-height: 1.3;
+    }
+    .done-text .small {
+        display: block;
+        font-size: clamp(0.72rem, 1.4vw, 0.9rem);
+        margin-top: 8px;
+        opacity: 0.95;
+    }
+
+    /* ============ RESULT SCREEN ============ */
+    #resultScreen { background: linear-gradient(135deg, #4DB6AC 0%, #66BB6A 100%); }
+    .result-container {
+        background: #fff8e7;
+        border-radius: 30px;
+        padding: 26px 22px;
+        text-align: center;
+        max-width: 640px;
+        width: 92%;
+        max-height: 88vh;
+        overflow-y: auto;
+        border: 6px solid #ff8c42;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        color: #333;
+    }
+    .result-container h1 {
+        color: #e67e22;
+        font-size: clamp(1.4rem, 3.6vw, 1.9rem);
+        text-shadow: 2px 2px 0 #fff;
+        margin-bottom: 12px;
+        font-family: 'Courier New', monospace;
+    }
+    .winner-banner {
+        font-size: clamp(1rem, 2.3vw, 1.3rem);
+        font-weight: bold;
+        color: #fff;
+        background: linear-gradient(135deg, #f1c40f, #e67e22);
+        border-radius: 20px;
+        padding: 13px 12px;
+        margin: 8px 0 16px;
+        box-shadow: 0 6px 0 #b9770e;
+        animation: winnerPop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        line-height: 1.3;
+    }
+    @keyframes winnerPop {
+        0% { transform: scale(0.6); opacity: 0; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+
+    .table-wrapper {
+        width: 100%;
+        max-height: 40vh;
+        overflow-y: auto;
+        margin-top: 10px;
+        border-radius: 10px;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    th, td {
+        padding: 10px 8px;
+        text-align: center;
+        border-bottom: 2px solid #ffd966;
+        font-size: clamp(0.78rem, 1.6vw, 0.95rem);
+    }
+    th { background: #ff8c42; color: #fff; }
+    .row-p1 td { background: #eaf4fd; }
+    .row-p2 td { background: #fdeaea; }
+    .row-p3 td { background: #eafaf1; }
+    .row-winner td { font-weight: bold; background: #fff6d5 !important; }
+    .status-win { color: #27ae60; font-weight: bold; }
+    .status-fail { color: #c0392b; font-weight: bold; }
+
+    .result-buttons {
+        display: flex; gap: 10px;
+        justify-content: center;
+        margin-top: 18px;
+        flex-wrap: wrap;
+    }
+    .result-btn {
+        padding: 12px 22px;
+        font-size: clamp(0.9rem, 1.8vw, 1rem);
+        font-weight: bold;
+        border: none; border-radius: 30px;
+        cursor: pointer; font-family: inherit;
+        color: #fff;
+        transition: transform 0.15s;
+    }
+    #clearDataBtn { background: #e74c3c; box-shadow: 0 5px 0 #a93226; }
+    #newPlayerBtn { background: #f39c12; box-shadow: 0 5px 0 #d35400; }
+    .result-btn:hover { transform: translateY(-2px); }
+    .result-btn:active { transform: translateY(3px); }
+
+    /* ============ GOODBYE SCREEN ============ */
+    #goodbyeScreen {
+        background: linear-gradient(135deg, #0a0a2e, #1a0033, #2d0052);
+        gap: 20px;
+    }
+    .bye-icon {
+        font-size: clamp(60px, 14vw, 100px);
+        animation: byeBounce 1.5s ease-in-out infinite;
+    }
+    @keyframes byeBounce {
+        0%,100% { transform: translateY(0) scale(1); }
+        50% { transform: translateY(-15px) scale(1.05); }
+    }
+    #goodbyeScreen h1 {
+        font-size: clamp(1.4rem, 4.5vw, 2.4rem);
+        color: #FFD700;
+        text-shadow: 0 0 25px #ff8c00, 0 0 50px rgba(255,140,0,0.4);
+        font-family: 'Courier New', monospace;
+    }
+    #goodbyeScreen p {
+        font-size: clamp(0.85rem, 2.2vw, 1.1rem);
+        color: #ccc; max-width: 480px; line-height: 1.6;
+    }
+    .bye-buttons {
+        display: flex; gap: 12px;
+        flex-wrap: wrap; justify-content: center;
+        margin-top: 10px;
+    }
+    .bye-buttons button {
+        padding: 13px 30px;
+        font-size: clamp(0.9rem, 2vw, 1.1rem);
+        font-weight: bold;
+        border: none; border-radius: 12px;
+        cursor: pointer; font-family: inherit;
+        color: #fff;
+        transition: transform 0.15s;
+        min-width: 160px;
+    }
+    #closeWinBtn { background: linear-gradient(135deg, #dc3545, #a02030); box-shadow: 0 5px #5a0f1a; }
+    #reopenBtn { background: linear-gradient(135deg, #4CAF50, #2E7D32); box-shadow: 0 5px #1B5E20; }
+    .bye-buttons button:hover { transform: translateY(-2px); }
+    .bye-buttons button:active { transform: translateY(2px); }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 850px) {
+        .player-panel { padding: 5px 4px; border-radius: 14px; }
+        .panel-timer { font-size: 0.7rem; padding: 3px 8px; }
+        .player-name-badge { font-size: 0.68rem; padding: 3px 8px; }
+    }
+    @media (max-width: 640px) {
+        body[data-players="3"] .duel-layout {
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        body[data-players="3"] .player-panel {
+            min-height: 42vh;
+            flex: 0 0 auto;
+            max-width: 100%;
+        }
+    }
+    @media (max-height: 600px) {
+        #credit { font-size: clamp(11px, 2.2vw, 16px); padding: 3px 8px; }
+        #gameScreen { padding: 38px 6px 6px; }
+    }
+</style>
+</head>
+<body data-players="2" data-device="laptop">
+
+<div id="credit">Programming by : Mr / Sameh Youssef</div>
+<button id="exitBtn" title="Exit Game">✕ Exit</button>
+
+<!-- ============ LOCK SCREEN ============ -->
+<section id="lockScreen" class="screen active">
+    <div class="lock-content">
+        <div class="lock-icon">🔒</div>
+        <h1>Enter Today's Password</h1>
+        <p>Get today's password from <b>tool.html</b>,<br>then enter it below to unlock the game.</p>
+        <input id="lockPassInput" type="password" maxlength="6" inputmode="numeric" placeholder="______" autocomplete="off">
+        <div id="lockHint"></div>
+        <button id="unlockBtn">Unlock 🔓</button>
+    </div>
+</section>
+
+<!-- ============ SETUP SCREEN ============ -->
+<section id="setupScreen" class="screen">
+    <div class="top-controls">
+        <div class="ctrl-group">
+            <button class="ctrl-btn active" data-lang="en">English</button>
+            <button class="ctrl-btn" data-lang="fr">Français</button>
+        </div>
+        <div class="ctrl-group">
+            <button class="ctrl-btn active" data-device="laptop">💻 Laptop</button>
+            <button class="ctrl-btn" data-device="mobile">📱 Mobile</button>
+        </div>
+        <div class="ctrl-group">
+            <button class="ctrl-btn" data-players="1">👤 1</button>
+            <button class="ctrl-btn active" data-players="2">👥 2</button>
+            <button class="ctrl-btn" data-players="3">👥 3</button>
+        </div>
+    </div>
+
+    <h1 class="setup-title" id="setupTitle">✏️ One-Line Drawing Challenge ✏️</h1>
+    <p class="setup-subtitle" id="setupSubtitle">Draw the whole shape without lifting your pen — first to finish wins!</p>
+
+    <div class="names-row">
+        <div class="name-field" data-p="1">
+            <label>🔵 Player 1</label>
+            <input type="text" id="name1" maxlength="18" placeholder="Enter name">
+        </div>
+        <div class="name-field" data-p="2">
+            <label>🔴 Player 2</label>
+            <input type="text" id="name2" maxlength="18" placeholder="Enter name">
+        </div>
+        <div class="name-field" data-p="3">
+            <label>🟢 Player 3</label>
+            <input type="text" id="name3" maxlength="18" placeholder="Enter name">
+        </div>
+    </div>
+
+    <button id="startBtn">🚀 Start Game</button>
+</section>
+
+<!-- ============ GAME SCREEN ============ -->
+<section id="gameScreen" class="screen">
+    <div class="duel-layout">
+        <!-- PLAYER 1 -->
+        <div class="player-panel p1-panel" data-panel="0" id="panel0">
+            <div class="panel-header">
+                <div class="player-name-badge" id="nameDisplay0">Player 1</div>
+                <div class="panel-timer" id="timerDisplay0">120s</div>
+            </div>
+            <div class="panel-canvas-wrap">
+                <canvas class="panel-canvas" id="canvas0" width="500" height="500"></canvas>
+            </div>
+            <div class="panel-message" id="message0"></div>
+            <button class="panel-reset-btn" data-reset="0">Reset Draw</button>
+            <div class="done-overlay" id="doneOverlay0">
+                <div class="done-text">
+                    <span id="doneText0">✓ Done!</span>
+                    <span class="small" id="doneSub0"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- PLAYER 2 -->
+        <div class="player-panel p2-panel" data-panel="1" id="panel1">
+            <div class="panel-header">
+                <div class="player-name-badge" id="nameDisplay1">Player 2</div>
+                <div class="panel-timer" id="timerDisplay1">120s</div>
+            </div>
+            <div class="panel-canvas-wrap">
+                <canvas class="panel-canvas" id="canvas1" width="500" height="500"></canvas>
+            </div>
+            <div class="panel-message" id="message1"></div>
+            <button class="panel-reset-btn" data-reset="1">Reset Draw</button>
+            <div class="done-overlay" id="doneOverlay1">
+                <div class="done-text">
+                    <span id="doneText1">✓ Done!</span>
+                    <span class="small" id="doneSub1"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- PLAYER 3 -->
+        <div class="player-panel p3-panel" data-panel="2" id="panel2">
+            <div class="panel-header">
+                <div class="player-name-badge" id="nameDisplay2">Player 3</div>
+                <div class="panel-timer" id="timerDisplay2">120s</div>
+            </div>
+            <div class="panel-canvas-wrap">
+                <canvas class="panel-canvas" id="canvas2" width="500" height="500"></canvas>
+            </div>
+            <div class="panel-message" id="message2"></div>
+            <button class="panel-reset-btn" data-reset="2">Reset Draw</button>
+            <div class="done-overlay" id="doneOverlay2">
+                <div class="done-text">
+                    <span id="doneText2">✓ Done!</span>
+                    <span class="small" id="doneSub2"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ============ RESULT SCREEN ============ -->
+<section id="resultScreen" class="screen">
+    <div class="result-container">
+        <h1 id="results-title">🏆 Performance Dashboard 🏆</h1>
+        <div class="winner-banner" id="winnerBanner">Winner</div>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th id="th-name">Player</th>
+                        <th id="th-status">Result</th>
+                        <th id="th-time">Time Spent</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboard-body"></tbody>
+            </table>
+        </div>
+        <div class="result-buttons">
+            <button id="clearDataBtn" class="result-btn">🗑️ Clear Data</button>
+            <button id="newPlayerBtn" class="result-btn">🔄 New Players</button>
+        </div>
+    </div>
+</section>
+
+<!-- ============ GOODBYE SCREEN ============ -->
+<section id="goodbyeScreen" class="screen">
+    <div class="bye-icon">👋</div>
+    <h1>Thank You for Playing!</h1>
+    <p>The game has been closed. Click below to close this tab or reopen the game.</p>
+    <div class="bye-buttons">
+        <button id="closeWinBtn">🚪 Close Window</button>
+        <button id="reopenBtn">🔄 Reopen Game</button>
+    </div>
+</section>
+
+<script>
+(function() {
+    'use strict';
+
+    /* ============ PASSWORD ============ */
+    function _lcg(seed) { const a=1664525,c=1013904223,m=Math.pow(2,32); return (a*seed+c)%m; }
+    function _mixHash(input) {
+        let h = input|0;
+        h ^= h>>>16; h = Math.imul(h,0x85ebca6b);
+        h ^= h>>>13; h = Math.imul(h,0xc2b2ae35);
+        h ^= h>>>16; return h>>>0;
+    }
+    function _seededRandom(seed) {
+        let t = seed + 0x6D2B79F5;
+        t = Math.imul(t^(t>>>15),t|1);
+        t ^= t + Math.imul(t^(t>>>7),t|61);
+        return ((t^(t>>>14))>>>0)/4294967296;
+    }
+    function _getSecretKey() {
+        const p1 = 0x5A3C ^ 0x2F7E;
+        const p2 = p1 * 0x1D;
+        const p3 = 0x8B92 + 0x1F4D;
+        return p2 + p3;
+    }
+    function _getSalt() { return String.fromCharCode(71,65,77,69) + String.fromCharCode(50,48,50,54); }
+    function _todayPass() {
+        try {
+            const d = new Date();
+            const dateRaw = (d.getFullYear()*10000) + ((d.getMonth()+1)*100) + d.getDate();
+            const dateHash = _mixHash(dateRaw);
+            const dateMixed = _lcg(dateHash);
+            const SECRET = _getSecretKey();
+            const SALT = _getSalt();
+            let saltNum = 0;
+            for (let i = 0; i < SALT.length; i++) {
+                saltNum = (saltNum*31) + SALT.charCodeAt(i);
+                saltNum = saltNum|0;
+            }
+            saltNum = Math.abs(saltNum);
+            const l1 = (SECRET ^ saltNum) >>> 0;
+            const l2 = _mixHash(l1 + dateHash) >>> 0;
+            const l3 = _lcg(l2) >>> 0;
+            const fs = (l3 ^ dateMixed) >>> 0;
+            let p = String(1 + Math.floor(_seededRandom(fs)*9));
+            for (let i = 0; i < 5; i++) p += String(Math.floor(_seededRandom(fs + (i+1)*9973)*10));
+            return p;
+        } catch(e) { return ""; }
+    }
+    function _passCheck(val) {
+        try {
+            const c = _todayPass();
+            if (!c || !val) return false;
+            if (val.length !== c.length) return false;
+            let diff = 0;
+            for (let i = 0; i < val.length; i++) diff |= (val.charCodeAt(i) ^ c.charCodeAt(i));
+            return diff === 0;
+        } catch(e) { return false; }
+    }
+
+    /* ============ FULLSCREEN ============ */
+    (function(){
+        let fw = true, ei = false;
+        function isFs() {
+            return !!(document.fullscreenElement || document.webkitFullscreenElement ||
+                      document.mozFullScreenElement || document.msFullscreenElement);
+        }
+        async function enterFs() {
+            const el = document.documentElement;
+            try {
+                if (el.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' });
+                else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+                else if (el.mozRequestFullScreen) await el.mozRequestFullScreen();
+                else if (el.msRequestFullscreen) await el.msRequestFullscreen();
+            } catch(e) {}
+        }
+        function onFs() {
+            if (!isFs() && fw && !ei) setTimeout(() => { if (fw && !isFs()) enterFs(); }, 50);
+        }
+        ['fullscreenchange','webkitfullscreenchange','mozfullscreenchange','MSFullscreenChange']
+            .forEach(evt => document.addEventListener(evt, onFs));
+
+        let att = false;
+        async function once() { if (att) return; att = true; await enterFs(); }
+        document.addEventListener('touchstart', once, { passive: true });
+        document.addEventListener('click', once);
+        document.addEventListener('keydown', once, { once: true });
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && fw) { e.preventDefault(); e.stopPropagation(); }
+        }, true);
+
+        window.__allowFsExit = () => { ei = true; fw = false; };
+    })();
+
+    /* ============ TRANSLATIONS ============ */
+    const translations = {
+        en: {
+            title: "✏️ One-Line Drawing Challenge ✏️",
+            subtitle: "Draw the whole shape without lifting your pen — first to finish wins!",
+            btnStart: "🚀 Start Game",
+            resetBtn: "Reset Draw",
+            instructions: "Select any node and drag to draw without lifting!",
+            winMsg: "Excellent! You solved it 🎯",
+            failRepeat: "Line crossed! Retrying...",
+            failLift: "Pen lifted early! Retrying...",
+            timeout: "Time out!",
+            resultsTitle: "🏆 Performance Dashboard 🏆",
+            thName: "Player",
+            thStatus: "Result",
+            thTime: "Time Spent",
+            btnClear: "🗑️ Clear Data",
+            btnRestart: "🔄 New Players",
+            statusWin: "Success",
+            statusFail: "Failed",
+            alertName: "Please enter all names!",
+            alertDuplicate: "Players must have different names!",
+            touchMode: "📱 Touch Mode",
+            mouseMode: "💻 Mouse Mode",
+            winnerIs: (n) => "👑 WINNER: " + n,
+            drawText: "🤝 It's a DRAW!",
+            soloTitle: "🏆 Your Result 🏆"
+        },
+        fr: {
+            title: "✏️ Défi du Dessin en Une Ligne ✏️",
+            subtitle: "Dessinez la forme entière sans lever le stylo — le premier à finir gagne!",
+            btnStart: "🚀 Commencer",
+            resetBtn: "Réinitialiser",
+            instructions: "Choisissez un point et glissez sans lever le stylo!",
+            winMsg: "Excellent! Résolu 🎯",
+            failRepeat: "Ligne croisée! Réessayer...",
+            failLift: "Stylo levé trop tôt! Réessayer...",
+            timeout: "Temps écoulé!",
+            resultsTitle: "🏆 Tableau des Résultats 🏆",
+            thName: "Joueur",
+            thStatus: "Résultat",
+            thTime: "Temps Passé",
+            btnClear: "🗑️ Effacer les Données",
+            btnRestart: "🔄 Nouveaux Joueurs",
+            statusWin: "Réussi",
+            statusFail: "Échoué",
+            alertName: "Veuillez entrer tous les noms!",
+            alertDuplicate: "Les joueurs doivent avoir des noms différents!",
+            touchMode: "📱 Mode Tactile",
+            mouseMode: "💻 Mode Souris",
+            winnerIs: (n) => "👑 VAINQUEUR: " + n,
+            drawText: "🤝 Match Nul !",
+            soloTitle: "🏆 Votre Résultat 🏆"
+        }
+    };
+
+    /* ============ STATE ============ */
+    let currentLang = 'en';
+    let currentDevice = 'laptop';
+    let numPlayers = 2;
+    let playerNames = ['Player 1', 'Player 2', 'Player 3'];
+    let gameTimer = null;
+    let timeRemaining = 120;
+    let timeElapsed = 0;
+    let gameOver = false;
+    let nodeThreshold = 25;
+
+    let leaderboard = [];
+    try {
+        leaderboard = JSON.parse(localStorage.getItem('drawingGameLeaderboard')) || [];
+    } catch (e) { leaderboard = []; }
+
+    // Each player has own state
+    let players = [];
+
+    const nodes = [
+        { id: 0, x: 150, y: 150 },
+        { id: 1, x: 300, y: 150 },
+        { id: 2, x: 150, y: 300 },
+        { id: 3, x: 300, y: 300 },
+        { id: 4, x: 450, y: 300 },
+        { id: 5, x: 300, y: 450 },
+        { id: 6, x: 450, y: 450 }
+    ];
+
+    const BASE_EDGES = [
+        { u: 0, v: 1 }, { u: 0, v: 2 }, { u: 1, v: 3 },
+        { u: 2, v: 3 }, { u: 1, v: 4 }, { u: 3, v: 4 },
+        { u: 2, v: 5 }, { u: 3, v: 5 }, { u: 4, v: 6 },
+        { u: 5, v: 6 }
+    ];
+
+    /* ============ SCREEN MANAGEMENT ============ */
+    const screens = {
+        lock: document.getElementById('lockScreen'),
+        setup: document.getElementById('setupScreen'),
+        game: document.getElementById('gameScreen'),
+        result: document.getElementById('resultScreen'),
+        goodbye: document.getElementById('goodbyeScreen')
+    };
+
+    function switchScreen(to) {
+        Object.values(screens).forEach(s => s.classList.remove('active'));
+        to.classList.add('active');
+    }
+
+    /* ============ PLAYER STATE ============ */
+    function createPlayerState(name, idx) {
+        return {
+            idx: idx,
+            name: name,
+            canvas: document.getElementById('canvas' + idx),
+            ctx: document.getElementById('canvas' + idx).getContext('2d'),
+            edges: BASE_EDGES.map(e => ({ u: e.u, v: e.v, drawn: false })),
+            isDrawing: false,
+            currentNode: null,
+            activePoint: null,
+            isFinished: false,
+            finishTime: 0
+        };
+    }
+
+    /* ============ LANGUAGE ============ */
+    function applyLang(l) {
+        currentLang = l;
+        document.querySelectorAll('[data-lang]').forEach(b =>
+            b.classList.toggle('active', b.dataset.lang === l));
+        const t = translations[l];
+        document.getElementById('setupTitle').textContent = t.title;
+        document.getElementById('setupSubtitle').textContent = t.subtitle;
+        document.getElementById('startBtn').textContent = t.btnStart;
+        document.getElementById('results-title').textContent = t.resultsTitle;
+        document.getElementById('th-name').textContent = t.thName;
+        document.getElementById('th-status').textContent = t.thStatus;
+        document.getElementById('th-time').textContent = t.thTime;
+        document.getElementById('clearDataBtn').textContent = t.btnClear;
+        document.getElementById('newPlayerBtn').textContent = t.btnRestart;
+        // reset buttons
+        document.querySelectorAll('.panel-reset-btn').forEach(b => {
+            b.textContent = t.resetBtn;
+        });
+        // messages
+        for (let i = 0; i < 3; i++) {
+            const msg = document.getElementById('message' + i);
+            if (msg && !players[i]) msg.textContent = t.instructions;
+        }
+    }
+
+    /* ============ DEVICE ============ */
+    function applyDevice(d) {
+        currentDevice = d;
+        document.body.dataset.device = d;
+        document.querySelectorAll('[data-device]').forEach(b =>
+            b.classList.toggle('active', b.dataset.device === d));
+        nodeThreshold = (d === 'mobile') ? 35 : 25;
+        document.querySelectorAll('.panel-canvas').forEach(c => {
+            c.style.cursor = (d === 'mobile') ? 'pointer' : 'crosshair';
+        });
+    }
+
+    /* ============ PLAYERS COUNT ============ */
+    function applyPlayers(n) {
+        numPlayers = n;
+        document.body.dataset.players = String(n);
+        document.querySelectorAll('[data-players]').forEach(b =>
+            b.classList.toggle('active', parseInt(b.dataset.players) === n));
+    }
+
+    document.querySelectorAll('[data-lang]').forEach(b =>
+        b.addEventListener('click', () => applyLang(b.dataset.lang)));
+    document.querySelectorAll('[data-device]').forEach(b =>
+        b.addEventListener('click', () => applyDevice(b.dataset.device)));
+    document.querySelectorAll('[data-players]').forEach(b =>
+        b.addEventListener('click', () => applyPlayers(parseInt(b.dataset.players))));
+
+    /* ============ LOCK SCREEN ============ */
+    const lockPassInput = document.getElementById('lockPassInput');
+    const lockHint = document.getElementById('lockHint');
+
+    function tryUnlock() {
+        const val = lockPassInput.value.trim();
+        lockHint.textContent = '';
+        if (!val) {
+            lockHint.textContent = 'Please enter the password';
+            lockPassInput.classList.add('shake');
+            setTimeout(() => lockPassInput.classList.remove('shake'), 400);
+            return;
+        }
+        if (_passCheck(val)) {
+            lockPassInput.value = '';
+            switchScreen(screens.setup);
+        } else {
+            lockHint.textContent = 'Wrong password — try again';
+            lockPassInput.classList.add('shake');
+            setTimeout(() => lockPassInput.classList.remove('shake'), 400);
+            lockPassInput.value = '';
+            lockPassInput.focus();
+        }
+    }
+    document.getElementById('unlockBtn').addEventListener('click', tryUnlock);
+    lockPassInput.addEventListener('keypress', e => { if (e.key === 'Enter') tryUnlock(); });
+
+    /* ============ GAME LOGIC PER PLAYER ============ */
+    function renderPlayer(pl) {
+        const ctx = pl.ctx;
+        ctx.clearRect(0, 0, pl.canvas.width, pl.canvas.height);
+
+        pl.edges.forEach(edge => {
+            ctx.beginPath();
+            ctx.moveTo(nodes[edge.u].x, nodes[edge.u].y);
+            ctx.lineTo(nodes[edge.v].x, nodes[edge.v].y);
+            ctx.strokeStyle = edge.drawn ? '#4eff4e' : 'rgba(255,255,255,0.25)';
+            ctx.lineWidth = edge.drawn ? 6 : 4;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+        });
+
+        if (pl.isDrawing && pl.currentNode !== null && pl.activePoint) {
+            ctx.beginPath();
+            ctx.moveTo(pl.currentNode.x, pl.currentNode.y);
+            ctx.lineTo(pl.activePoint.x, pl.activePoint.y);
+            ctx.strokeStyle = '#ffd700';
+            ctx.lineWidth = 5;
+            ctx.stroke();
+        }
+
+        nodes.forEach(node => {
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, 12, 0, Math.PI * 2);
+            ctx.fillStyle = (pl.currentNode && pl.currentNode.id === node.id) ? '#ffd700' : '#ffffff';
+            ctx.fill();
+            ctx.strokeStyle = '#1e3f20';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        });
+    }
+
+    function findClosestNode(x, y) {
+        return nodes.find(node => Math.hypot(node.x - x, node.y - y) < nodeThreshold);
+    }
+
+    function getPointerPos(pl, e) {
+        const rect = pl.canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return {
+            x: (clientX - rect.left) * (pl.canvas.width / rect.width),
+            y: (clientY - rect.top) * (pl.canvas.height / rect.height)
+        };
+    }
+
+    function startDrawing(pl, e) {
+        if (gameOver || pl.isFinished) return;
+        const pos = getPointerPos(pl, e);
+        const node = findClosestNode(pos.x, pos.y);
+        if (node) {
+            pl.isDrawing = true;
+            pl.currentNode = node;
+            pl.activePoint = pos;
+            renderPlayer(pl);
+        }
+    }
+
+    function draw(pl, e) {
+        if (!pl.isDrawing || gameOver || pl.isFinished || !pl.currentNode) return;
+        const pos = getPointerPos(pl, e);
+        pl.activePoint = pos;
+
+        const targetNode = findClosestNode(pos.x, pos.y);
+        if (targetNode && targetNode.id !== pl.currentNode.id) {
+            const edge = pl.edges.find(ed =>
+                (ed.u === pl.currentNode.id && ed.v === targetNode.id) ||
+                (ed.u === targetNode.id && ed.v === pl.currentNode.id)
+            );
+            if (edge) {
+                if (!edge.drawn) {
+                    edge.drawn = true;
+                    pl.currentNode = targetNode;
+                    checkPlayerWin(pl);
+                } else {
+                    failAttempt(pl, translations[currentLang].failRepeat);
+                }
+            }
+        }
+        renderPlayer(pl);
+    }
+
+    function stopDrawing(pl) {
+        if (!pl.isDrawing || gameOver || pl.isFinished) return;
+        pl.isDrawing = false;
+        const allDrawn = pl.edges.every(e => e.drawn);
+        if (!allDrawn) failAttempt(pl, translations[currentLang].failLift);
+    }
+
+    function failAttempt(pl, msg) {
+        pl.isDrawing = false;
+        pl.currentNode = null;
+        pl.activePoint = null;
+        const m = document.getElementById('message' + pl.idx);
+        m.textContent = msg;
+        m.className = 'error';
+        pl.edges.forEach(e => e.drawn = false);
+        setTimeout(() => {
+            if (!gameOver && !pl.isFinished) {
+                m.textContent = translations[currentLang].instructions;
+                m.className = 'info';
+                renderPlayer(pl);
+            }
+        }, 1000);
+    }
+
+    function checkPlayerWin(pl) {
+        if (pl.edges.every(e => e.drawn)) {
+            pl.isFinished = true;
+            pl.finishTime = timeElapsed;
+            pl.isDrawing = false;
+            pl.currentNode = null;
+            pl.activePoint = null;
+
+            const m = document.getElementById('message' + pl.idx);
+            m.textContent = translations[currentLang].winMsg;
+            m.className = 'success';
+
+            const panel = document.getElementById('panel' + pl.idx);
+            panel.classList.add('panel-done');
+            document.getElementById('doneText' + pl.idx).textContent = '✓ Finished!';
+            document.getElementById('doneSub' + pl.idx).textContent =
+                `Time: ${pl.finishTime}s`;
+
+            // End game when all finished
+            if (players.every(p => p.isFinished)) {
+                setTimeout(endDuel, 900);
+            }
+        }
+    }
+
+    /* ============ START / END DUEL ============ */
+    function startGame() {
+        const en = currentLang === 'en';
+        const names = [];
+        for (let i = 1; i <= numPlayers; i++) {
+            const field = document.getElementById('name' + i);
+            const defaultName = en ? `Player ${i}` : `Joueur ${i}`;
+            const nm = (field.value || '').trim() || defaultName;
+            names.push(nm);
+        }
+        const lower = names.map(n => n.toLowerCase());
+        if (new Set(lower).size !== lower.length) {
+            alert(translations[currentLang].alertDuplicate);
+            return;
+        }
+        playerNames = names;
+
+        // Create players
+        players = [];
+        for (let i = 0; i < numPlayers; i++) {
+            players.push(createPlayerState(playerNames[i], i));
+        }
+
+        // Reset UI
+        for (let i = 0; i < 3; i++) {
+            const panel = document.getElementById('panel' + i);
+            if (panel) panel.classList.remove('panel-done');
+            const nameBadge = document.getElementById('nameDisplay' + i);
+            if (nameBadge && players[i]) nameBadge.textContent = players[i].name;
+            const timerEl = document.getElementById('timerDisplay' + i);
+            if (timerEl) timerEl.textContent = '120s';
+            const msg = document.getElementById('message' + i);
+            if (msg) {
+                msg.textContent = translations[currentLang].instructions;
+                msg.className = 'info';
+            }
+        }
+
+        gameOver = false;
+        timeRemaining = 120;
+        timeElapsed = 0;
+
+        // Bind canvas events per player
+        players.forEach(pl => {
+            bindPlayerCanvasEvents(pl);
+            renderPlayer(pl);
+        });
+
+        switchScreen(screens.game);
+
+        clearInterval(gameTimer);
+        gameTimer = setInterval(() => {
+            if (gameOver) return;
+            timeRemaining--;
+            timeElapsed++;
+            // Update each visible timer
+            for (let i = 0; i < numPlayers; i++) {
+                const el = document.getElementById('timerDisplay' + i);
+                if (el) el.textContent = timeRemaining + 's';
+            }
+            if (timeRemaining <= 0) endDuel();
+        }, 1000);
+    }
+
+    function bindPlayerCanvasEvents(pl) {
+        const c = pl.canvas;
+        // Remove old listeners by cloning
+        const fresh = c.cloneNode(true);
+        c.parentNode.replaceChild(fresh, c);
+        pl.canvas = fresh;
+        pl.ctx = fresh.getContext('2d');
+
+        fresh.addEventListener('mousedown', (e) => startDrawing(pl, e));
+        fresh.addEventListener('mousemove', (e) => draw(pl, e));
+        window.addEventListener('mouseup', () => stopDrawing(pl));
+        fresh.addEventListener('touchstart', (e) => { e.preventDefault(); startDrawing(pl, e); }, { passive: false });
+        fresh.addEventListener('touchmove', (e) => { e.preventDefault(); draw(pl, e); }, { passive: false });
+        window.addEventListener('touchend', () => stopDrawing(pl));
+    }
+
+    function endDuel() {
+        if (gameOver) return;
+        gameOver = true;
+        clearInterval(gameTimer);
+
+        players.forEach(pl => {
+            if (!pl.isFinished) {
+                pl.isFinished = true;
+                pl.finishTime = 999;
+                const m = document.getElementById('message' + pl.idx);
+                m.textContent = translations[currentLang].timeout;
+                m.className = 'error';
+                const panel = document.getElementById('panel' + pl.idx);
+                panel.classList.add('panel-done');
+                document.getElementById('doneText' + pl.idx).textContent = '⏰ Time\'s Up!';
+                document.getElementById('doneSub' + pl.idx).textContent = `Score: 0`;
+            }
+            // Save to leaderboard
+            leaderboard.push({
+                name: pl.name,
+                success: pl.edges.every(e => e.drawn),
+                time: pl.edges.every(e => e.drawn) ? `${pl.finishTime}s` : '-'
+            });
+        });
+        try { localStorage.setItem('drawingGameLeaderboard', JSON.stringify(leaderboard)); } catch(e){}
+
+        setTimeout(showResults, 900);
+    }
+
+    function showResults() {
+        const t = translations[currentLang];
+        document.getElementById('results-title').textContent = t.resultsTitle;
+        document.getElementById('th-name').textContent = t.thName;
+        document.getElementById('th-status').textContent = t.thStatus;
+        document.getElementById('th-time').textContent = t.thTime;
+
+        const banner = document.getElementById('winnerBanner');
+
+        if (numPlayers === 1) {
+            const p = players[0];
+            const won = p.edges.every(e => e.drawn);
+            document.getElementById('results-title').textContent = t.soloTitle;
+            banner.textContent = (won ? '🏆 ' : '⏰ ') + p.name + ' — ' + (won ? `${p.finishTime}s` : 'Failed');
+        } else {
+            // Find winner: those who finished, earliest time
+            const finished = players.filter(p => p.edges.every(e => e.drawn));
+            if (finished.length === 0) {
+                banner.textContent = t.drawText;
+                banner.style.background = 'linear-gradient(135deg, #7f8c8d, #566573)';
+                banner.style.boxShadow = '0 6px 0 #34495e';
+            } else {
+                finished.sort((a, b) => a.finishTime - b.finishTime);
+                const winner = finished[0];
+                // Check tie
+                const tied = finished.filter(p => p.finishTime === winner.finishTime);
+                if (tied.length > 1) {
+                    banner.textContent = t.drawText;
+                    banner.style.background = 'linear-gradient(135deg, #7f8c8d, #566573)';
+                    banner.style.boxShadow = '0 6px 0 #34495e';
+                } else {
+                    banner.textContent = t.winnerIs(winner.name);
+                    banner.style.background = 'linear-gradient(135deg, #f1c40f, #e67e22)';
+                    banner.style.boxShadow = '0 6px 0 #b9770e';
+                }
+            }
+        }
+
+        const tbody = document.getElementById('leaderboard-body');
+        tbody.innerHTML = '';
+        players.forEach((pl, idx) => {
+            const won = pl.edges.every(e => e.drawn);
+            const row = tbody.insertRow();
+            row.className = 'row-p' + (idx + 1);
+            // mark winner
+            const finished = players.filter(p => p.edges.every(e => e.drawn));
+            const topTime = finished.length ? Math.min(...finished.map(p => p.finishTime)) : -1;
+            if (won && pl.finishTime === topTime && numPlayers > 1 && finished.length > 0) {
+                row.classList.add('row-winner');
+            }
+            const prefix = idx === 0 ? '🔵 ' : (idx === 1 ? '🔴 ' : '🟢 ');
+            row.insertCell(0).textContent = prefix + pl.name;
+            const statusCell = row.insertCell(1);
+            statusCell.textContent = won ? t.statusWin : t.statusFail;
+            statusCell.className = won ? 'status-win' : 'status-fail';
+            row.insertCell(2).textContent = won ? `${pl.finishTime}s` : '-';
+        });
+
+        switchScreen(screens.result);
+    }
+
+    document.getElementById('startBtn').addEventListener('click', startGame);
+    document.getElementById('name1').addEventListener('keypress', e => { if (e.key === 'Enter') startGame(); });
+    document.getElementById('name2').addEventListener('keypress', e => { if (e.key === 'Enter') startGame(); });
+    document.getElementById('name3').addEventListener('keypress', e => { if (e.key === 'Enter') startGame(); });
+
+    /* ============ RESET BUTTONS ============ */
+    document.querySelectorAll('.panel-reset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const idx = parseInt(btn.dataset.reset);
+            const pl = players[idx];
+            if (!pl || gameOver || pl.isFinished) return;
+            pl.edges.forEach(e => e.drawn = false);
+            pl.isDrawing = false;
+            pl.currentNode = null;
+            pl.activePoint = null;
+            const m = document.getElementById('message' + idx);
+            m.textContent = translations[currentLang].instructions;
+            m.className = 'info';
+            renderPlayer(pl);
+        });
+    });
+
+    document.getElementById('clearDataBtn').addEventListener('click', () => {
+        leaderboard = [];
+        try { localStorage.removeItem('drawingGameLeaderboard'); } catch (e) {}
+        alert('All data cleared!');
+    });
+
+    document.getElementById('newPlayerBtn').addEventListener('click', () => {
+        for (let i = 1; i <= 3; i++) document.getElementById('name' + i).value = '';
+        switchScreen(screens.setup);
+    });
+
+    /* ============ EXIT BUTTON ============ */
+    document.getElementById('exitBtn').addEventListener('click', async () => {
+        if (typeof window.__allowFsExit === 'function') window.__allowFsExit();
+        try {
+            if (document.fullscreenElement) await document.exitFullscreen();
+            else if (document.webkitFullscreenElement) await document.webkitExitFullscreen();
+        } catch(e) {}
+        clearInterval(gameTimer);
+        switchScreen(screens.goodbye);
+    });
+    document.getElementById('closeWinBtn').addEventListener('click', () => {
+        window.close();
+        setTimeout(() => alert('Your browser does not allow automatic tab closing.\nPlease close this tab manually.'), 200);
+    });
+    document.getElementById('reopenBtn').addEventListener('click', () => location.reload());
+
+    /* ============ PROTECTION ============ */
+    (function _protection() {
+        try {
+            document.addEventListener('contextmenu', e => e.preventDefault(), true);
+            document.addEventListener('selectstart', e => {
+                const t = e.target;
+                if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+                e.preventDefault();
+            }, true);
+            ['dragstart','drop','dragover'].forEach(ev => {
+                document.addEventListener(ev, e => {
+                    const t = e.target;
+                    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+                    e.preventDefault();
+                }, true);
+            });
+            ['copy','cut'].forEach(ev => {
+                document.addEventListener(ev, e => {
+                    const t = e.target;
+                    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+                    e.preventDefault();
+                }, true);
+            });
+            document.addEventListener('keydown', e => {
+                const k = e.key || '';
+                const ctrl = e.ctrlKey || e.metaKey;
+                const shift = e.shiftKey;
+                const ku = k.toUpperCase();
+                const t = e.target;
+                const isField = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT');
+                if (k === 'F12' || k === 'F5') { e.preventDefault(); e.stopPropagation(); return false; }
+                if (ctrl && shift && ['I','J','C','K'].includes(ku)) { e.preventDefault(); e.stopPropagation(); return false; }
+                if (ctrl && shift && ku === 'R') { e.preventDefault(); e.stopPropagation(); return false; }
+                if (ctrl && !shift) {
+                    if (['U','S','P','R','F'].includes(ku)) { e.preventDefault(); e.stopPropagation(); return false; }
+                    if (ku === 'A' && !isField) { e.preventDefault(); e.stopPropagation(); return false; }
+                }
+            }, true);
+            window.addEventListener('beforeprint', e => e.preventDefault());
+            setInterval(() => { try { console.clear(); } catch(e) {} }, 5000);
+        } catch(e) {}
+    })();
+
+    /* ============ INIT ============ */
+    applyLang('en');
+    applyDevice('laptop');
+    applyPlayers(2);
+    setTimeout(() => lockPassInput.focus(), 300);
+
+})();
+</script>
+</body>
+</html>
